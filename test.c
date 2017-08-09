@@ -95,10 +95,10 @@ void SHA3_print (uint8_t dgst[], size_t len)
 
 int run_tests (void)
 {
-  uint8_t  dgst_out[256], buf[2048], dgst_in[256];
-  int      i, fails=0, dgst_len, inlen;
+  char  dgst_out[256], buf[2048], dgst_in[256];
+  size_t   i, fails=0, dgst_len, inlen;
   SHA3_CTX ctx;
-  uint8_t *input;
+  char *input;
   int tv_cnt=sizeof(text)/sizeof(char*);
   
   for (i=0; i<tv_cnt; i++)
@@ -107,7 +107,7 @@ int run_tests (void)
     dgst_len=hex2bin (dgst_in, SHA3_dgst[i]);
     // if this is the last one, convert the string to binary
     if ((i+1)==tv_cnt) {
-      memset (buf, sizeof (buf), 0);
+      memset (buf, 0, sizeof (buf));
       input=buf;
       inlen=hex2bin (buf, text[i]);
     } else {
@@ -148,7 +148,7 @@ void SHA3_string (char *str, char *key, int type)
   
   SHA3_print (dgst, ctx.olen);
 }
-
+/**
 void progress (uint64_t fs_complete, uint64_t fs_total)
 {
   int           days=0, hours=0, minutes=0;
@@ -247,7 +247,7 @@ void SHA3_file (char fn[], char *key, int type)
   } else {
     printf ("  [ unable to open %s\n", fn);
   }
-}
+}*/
 
 char* getparam (int argc, char *argv[], int *i)
 {
@@ -268,7 +268,7 @@ void usage (void)
   printf ("\n  usage: test -t <type> -f <file> -s <string>\n");
   printf ("\n  -t <type>   Type is 0=SHA3-224, 1=SHA3-256 (default), 2=SHA3-384, 3=SHA3-512");
   printf ("\n  -s <string> Derive SHA3 hash of <string>");
-  printf ("\n  -f <file>   Derive SHA3 hash of <file>");
+  //printf ("\n  -f <file>   Derive SHA3 hash of <file>");
   printf ("\n  -k <key>    Create MAC using <key>");
   printf ("\n  -x          Run tests\n");
   exit (0);
@@ -278,7 +278,8 @@ int main (int argc, char *argv[])
 {
   char opt;
   int i, test=0, type=1, wc=0;
-  char *file=NULL, *str=NULL, *key=NULL;
+  //char *file=NULL;
+  char *str=NULL, *key=NULL;
 
   setbuf (stdout, NULL);
   
@@ -301,10 +302,10 @@ int main (int argc, char *argv[])
       {
         case 's':
           str=getparam (argc, argv, &i);
-          break;
+          break;/*
         case 'f':
           file=getparam (argc, argv, &i);
-          break;
+          break;*/
         case 'k':
           key=getparam (argc, argv, &i);
           break;
@@ -331,7 +332,8 @@ int main (int argc, char *argv[])
     }
   } else if (str!=NULL) {
     SHA3_string (str, key, type);
-  } else if (file!=NULL || wc!=0) {
+  } 
+  /*else if (file!=NULL || wc!=0) {
     if (wc!=0) {
       while (argv[wc]!=NULL) {
         SHA3_file (argv[wc++], key, type);
@@ -339,7 +341,7 @@ int main (int argc, char *argv[])
     } else {
       SHA3_file (file, key, type);
     }
-  } else {
+  } */else {
     usage ();
   }
   return 0;
