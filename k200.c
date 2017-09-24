@@ -1,5 +1,5 @@
 /**
-  Copyright © 2015, 2016 Odzhan. All Rights Reserved.
+  Copyright © 2017 Odzhan. All Rights Reserved.
 
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions are
@@ -31,7 +31,7 @@
 
 // round constant function
 // Primitive polynomial over GF(2): x^8+x^6+x^5+x^4+1
-uint32_t rc (uint8_t *LFSR)
+uint8_t rc (uint8_t *LFSR)
 {
   uint64_t c;
   uint32_t i, t;
@@ -50,17 +50,17 @@ uint32_t rc (uint8_t *LFSR)
   return c;
 }
 
-void SHA3_Transform (uint32_t *st)
+void permute (uint8_t *st)
 {
-  uint32_t i, j, rnd, r;
-  uint32_t t, bc[5];
+  int     i, j, rnd, r;
+  uint8_t t, bc[5];
   uint8_t  lfsr=1;
   
 const uint8_t keccakf_piln[24] = 
 { 10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4, 
   15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1  };
   
-  for (rnd=0; rnd<22; rnd++) 
+  for (rnd=0; rnd<18; rnd++) 
   {
     // Theta
     for (i=0; i<5; i++) {     
@@ -71,22 +71,20 @@ const uint8_t keccakf_piln[24] =
             ^ st[i + 20];
     }
     for (i=0; i<5; i++) {
-      t = bc[(i + 4) % 5] ^ ROTL32(bc[(i + 1) % 5], 1);
+      t = bc[(i + 4) % 5] ^ ROTL8(bc[(i + 1) % 5], 1);
       for (j=0; j<25; j+=5) {
         st[j + i] ^= t;
       }
     }
-
     // Rho Pi
     t = st[1];
     for (i=0, r=0; i<24; i++) {
       r += i + 1;
       j = keccakf_piln[i];
       bc[0] = st[j];
-      st[j] = ROTL32(t, r & 31);
+      st[j] = ROTL8(t, r & 7);
       t = bc[0];
     }
-
     // Chi
     for (j=0; j<25; j+=5) {
       for (i=0; i<5; i++) {
@@ -98,50 +96,6 @@ const uint8_t keccakf_piln[24] =
     }
     // Iota
     st[0] ^= rc(&lfsr);
-  }
-}
-
-// mdlen isn't checked, it presumes caller provides 28,32,48 or 64
-void SHA3_Init (SHA3_CTX *c, int mdlen)
-{
-  uint32_t i;
-  
-  c->olen = mdlen;
-  c->blen = 100 - (2 * mdlen);
-  c->idx  = 0;
-  
-  for (i=0; i<SHA3_STATE_LEN; i++) {
-    c->s.w[i] = 0;
-  }
-}
-
-void SHA3_Update (SHA3_CTX* c, void *in, uint32_t inlen)
-{
-  uint32_t i;
-  
-  // update buffer and state
-  for (i=0; i<inlen; i++) {
-    // absorb byte into state
-    c->s.b[c->idx++] ^= ((uint8_t*)in)[i];    
-    if (c->idx == c->blen) {
-      SHA3_Transform (c->s.w);
-      c->idx = 0;
-    }
-  }
-}
-
-void SHA3_Final (void* out, SHA3_CTX* c)
-{
-  uint32_t i;
-  // absorb 3 bits, Keccak uses 1
-  c->s.b[c->idx] ^= 6;
-  // absorb end bit
-  c->s.b[c->blen-1] ^= 0x80;
-  // update context
-  SHA3_Transform (c->s.w);
-  // copy digest to buffer
-  for (i=0; i<c->olen; i++) {
-    ((uint8_t*)out)[i] = c->s.b[i];
   }
 }
 
@@ -179,15 +133,14 @@ uint8_t tv2[]={
   
 int main(int argc, char *argv[])
 {
-  uint8_t  out[32];
+  uint8_t  out[25];
   int      i;
-  SHA3_CTX c;
   
-  SHA3_Init(&c, 32);
-  SHA3_Update(&c, argv[1], strlen(argv[1]));
-  SHA3_Final(out, &c);
+  memset(out, 0, sizeof(out));
   
-  for (i=0; i<32; i++) {
+  permute(out);
+  
+  for (i=0; i<25; i++) {
     printf("%02x", out[i]);
   }
   putchar('\n');

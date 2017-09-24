@@ -54,10 +54,9 @@
 #define SHA3_512_CBLOCK         72
 
 typedef union sha3_st_t {
-  uint8_t  v8[SHA3_STATE_LEN*8];
-  uint16_t v16[SHA3_STATE_LEN*4];
-  uint32_t v32[SHA3_STATE_LEN*2];
-  uint64_t v64[SHA3_STATE_LEN];
+  uint8_t  b[SHA3_STATE_LEN*8];
+  uint32_t w[SHA3_STATE_LEN*2];
+  uint64_t q[SHA3_STATE_LEN];
 } sha3_st;
 
 #pragma pack(push, 1)
