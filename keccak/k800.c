@@ -27,7 +27,7 @@
   ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE. */
 
-#include "sha3.h"
+#include "keccak.h"
 
 // round constant function
 // Primitive polynomial over GF(2): x^8+x^6+x^5+x^4+1
@@ -50,11 +50,12 @@ uint32_t rc (uint8_t *LFSR)
   return c;
 }
 
-void permute (uint32_t *st)
+void k800_permute (void *state)
 {
   uint32_t i, j, rnd, r;
   uint32_t t, bc[5];
   uint8_t  lfsr=1;
+  uint32_t *st=(uint32_t*)state;
   
 const uint8_t keccakf_piln[24] = 
 { 10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4, 
@@ -131,6 +132,15 @@ uint8_t tv2[]={
   0x62,0x01,0xa6,0x5a,0xd5,0x25,0x88,0x35,
   0xab,0x3b,0x78,0xb3 };
   
+void bin2hex(uint8_t x[], int len) {
+  int i;
+  for (i=0; i<len; i++) {
+    if ((i & 7)==0) putchar('\n');
+    printf ("0x%02x,", x[i]);
+  }
+  putchar('\n');
+}
+  
 int main(int argc, char *argv[])
 {
   uint8_t  out[100];
@@ -138,12 +148,11 @@ int main(int argc, char *argv[])
   
   memset(out, 0, sizeof(out));
   
-  permute((uint32_t*)out);
-  
-  for (i=0; i<100; i++) {
-    printf("%02x", out[i]);
-  }
-  putchar('\n');
+  k800_permute(out);
+  bin2hex(out, 100);
+
+  k800_permute(out);
+  bin2hex(out, 100);
 
   return 0;
 }
