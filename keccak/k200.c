@@ -35,7 +35,7 @@ void k200_permute (void *state)
   uint8_t t, bc[5];
   uint8_t *st = (uint8_t*)state;
   
-uint8_t rc[]={
+const uint8_t rc[]={
   0x01,0x82,0x8a,0x00,0x8b,0x01,0x81,0x09,0x8a,
   0x88,0x09,0x0a,0x8b,0x8b,0x89,0x03,0x02,0x80};
   
@@ -87,6 +87,8 @@ const uint8_t keccakf_mod5[10] =
 
 #ifdef TEST
 
+#include <stdio.h>
+
 uint8_t tv1[]={
   0x3c,0x28,0x26,0x84,0x1c,0xb3,0x5c,0x17,
   0x1e,0xaa,0xe9,0xb8,0x11,0x13,0x4c,0xea,
@@ -108,10 +110,10 @@ void bin2hex(uint8_t x[], int len) {
   putchar('\n');
 }
   
-int main(int argc, char *argv[])
+int main(void)
 {
   uint8_t  out[25];
-  int      i, equ;
+  int      equ;
   
   memset(out, 0, sizeof(out));
   

@@ -105,6 +105,8 @@ const uint8_t keccakf_mod5[10] =
 
 #ifdef TEST
 
+#include <stdio.h>
+
 uint8_t tv1[]={
   0xe7,0xdd,0xe1,0x40,0x79,0x8f,0x25,0xf1,
   0x8a,0x47,0xc0,0x33,0xf9,0xcc,0xd5,0x84,
@@ -168,10 +170,10 @@ void bin2hex(uint8_t x[], int len) {
   putchar('\n');
 }
   
-int main(int argc, char *argv[])
+int main(void)
 {
   uint8_t  out[200];
-  int      i, equ;
+  int      equ;
   
   memset(out, 0, sizeof(out));
   
