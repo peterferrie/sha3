@@ -33,8 +33,9 @@
 // Primitive polynomial over GF(2): x^8+x^6+x^5+x^4+1
 uint32_t rc (uint8_t *LFSR)
 {
-  uint64_t c;
-  uint32_t i, t;
+  uint32_t c; 
+  int8_t   t;
+  uint8_t  i;
 
   c = 0;
   t = *LFSR;
@@ -42,13 +43,69 @@ uint32_t rc (uint8_t *LFSR)
   for (i=1; i<128; i += i) 
   {
     if (t & 1) {
-      c ^= (uint64_t)1ULL << (i - 1);
+      // if shift value is < 32
+      if ((i-1) < 32) {
+        c ^= 1UL << (i - 1);
+      }
     }
     t = (t & 0x80) ? (t << 1) ^ 0x71 : t << 1;
   }
   *LFSR = (uint8_t)t;
   return c;
 }
+
+/**
+__declspec(naked) uint32_t rcx (uint8_t *LFSR)
+{
+  __asm {
+    ;int 3
+    pushad
+    xor    esi, esi            ; c = 0  
+    xor    edi, edi
+    
+    mov    ebx, [esp+32+4]     ; t = *LFSR
+    push   ebx
+    movzx  ebx, byte ptr[ebx]          ; 
+    push   1                   ; i = 1
+    pop    edx    
+rc_l0:    
+    test   bl, 1
+    je     rc_l1
+    
+    ; c ^= (uint64_t)1ULL << (i - 1);
+    push   1
+    pop    eax
+    xor    ebp, ebp 
+    lea    ecx, [edx - 1]
+    cmp    cl, 32
+    jae    rc_lx
+    
+    shld   ebp, eax, cl
+    shl    eax, cl
+    jmp    rc_ly
+rc_lx:
+    mov    ebp, eax
+    xor    eax, eax 
+    and    cl, 31
+    shl    ebp, cl    
+rc_ly:    
+    xor    esi, eax
+    xor    edi, ebp
+rc_l1:
+    add    bl, bl              ; t << 1
+    jnc    rc_l2    
+    xor    bl, 0x71
+rc_l2:    
+    add    dl, dl              ; i += i
+    jns    rc_l0
+    
+    pop    eax
+    mov    byte ptr[eax], bl
+    mov    [esp+28], esi       ; return c & 255
+    popad
+    ret
+  };
+}*/
 
 void k800_permute (void *state)
 {
@@ -61,6 +118,9 @@ const uint8_t keccakf_piln[24] =
 { 10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4, 
   15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1  };
   
+const uint8_t keccakf_mod5[10] = 
+{ 0, 1, 2, 3, 4, 0, 1, 2, 3, 4 };
+  
   for (rnd=0; rnd<22; rnd++) 
   {
     // Theta
@@ -72,7 +132,7 @@ const uint8_t keccakf_piln[24] =
             ^ st[i + 20];
     }
     for (i=0; i<5; i++) {
-      t = bc[(i + 4) % 5] ^ ROTL32(bc[(i + 1) % 5], 1);
+      t = bc[keccakf_mod5[(i + 4)]] ^ ROTL32(bc[keccakf_mod5[(i + 1)]], 1);
       for (j=0; j<25; j+=5) {
         st[j + i] ^= t;
       }
@@ -92,7 +152,7 @@ const uint8_t keccakf_piln[24] =
         bc[i] = st[j + i];
       }
       for (i=0; i<5; i++) {
-        st[j + i] ^= (~bc[(i + 1) % 5]) & bc[(i + 2) % 5];
+        st[j + i] ^= (~bc[keccakf_mod5[(i + 1)]]) & bc[keccakf_mod5[(i + 2)]];
       }
     }
     // Iota
@@ -144,15 +204,19 @@ void bin2hex(uint8_t x[], int len) {
 int main(int argc, char *argv[])
 {
   uint8_t  out[100];
-  int      i;
+  int      i, equ;
   
   memset(out, 0, sizeof(out));
   
   k800_permute(out);
-  bin2hex(out, 100);
+  equ = memcmp(out, tv1, sizeof(tv1))==0;
+  printf("Test 1 %s\n", equ ? "OK" : "Failed"); 
+  //bin2hex(out, 100);
 
   k800_permute(out);
-  bin2hex(out, 100);
+  equ = memcmp(out, tv2, sizeof(tv2))==0;
+  printf("Test 2 %s\n", equ ? "OK" : "Failed");
+  //bin2hex(out, 100);
 
   return 0;
 }

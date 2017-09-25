@@ -61,6 +61,9 @@ const uint8_t keccakf_piln[24] =
 { 10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4, 
   15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1  };
   
+const uint8_t keccakf_mod5[10] = 
+{ 0, 1, 2, 3, 4, 0, 1, 2, 3, 4 };
+  
   for (rnd=0; rnd<24; rnd++) 
   {
     // Theta
@@ -72,13 +75,13 @@ const uint8_t keccakf_piln[24] =
             ^ st[i + 20];
     }
     for (i=0; i<5; i++) {
-      t = bc[(i + 4) % 5] ^ ROTL64(bc[(i + 1) % 5], 1);
+      t = bc[keccakf_mod5[(i + 4)]] ^ ROTL64(bc[keccakf_mod5[(i + 1)]], 1);
       for (j=0; j<25; j+=5) {
         st[j + i] ^= t;
       }
     }
     // Rho Pi
-    t = st[1];    
+    t = st[1];
     for (i=0, r=0; i<24; i++) {
       r += i + 1;
       j = keccakf_piln[i];
@@ -92,7 +95,7 @@ const uint8_t keccakf_piln[24] =
         bc[i] = st[j + i];
       }
       for (i=0; i<5; i++) {
-        st[j + i] ^= (~bc[(i + 1) % 5]) & bc[(i + 2) % 5];
+        st[j + i] ^= (~bc[keccakf_mod5[(i + 1)]]) & bc[keccakf_mod5[(i + 2)]];
       }
     }
     // Iota
@@ -168,15 +171,19 @@ void bin2hex(uint8_t x[], int len) {
 int main(int argc, char *argv[])
 {
   uint8_t  out[200];
-  int      i;
+  int      i, equ;
   
   memset(out, 0, sizeof(out));
   
   k1600_permute(out);
-  bin2hex(out, 200);
+  equ = memcmp(out, tv1, sizeof(tv1))==0;
+  printf("Test 1 %s\n", equ ? "OK" : "Failed"); 
+  //bin2hex(out, 200);
 
   k1600_permute(out);
-  bin2hex(out, 200);
+  equ = memcmp(out, tv2, sizeof(tv2))==0;
+  printf("Test 2 %s\n", equ ? "OK" : "Failed");
+  //bin2hex(out, 200);
 
   return 0;
 }
