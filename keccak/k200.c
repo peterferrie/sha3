@@ -43,7 +43,7 @@ const uint8_t keccakf_piln[24] =
 { 10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4, 
   15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1  };
   
-const uint8_t keccakf_mod5[10] = 
+const uint8_t m5[10] = 
 { 0, 1, 2, 3, 4, 0, 1, 2, 3, 4 };
   
   for (rnd=0; rnd<18; rnd++) 
@@ -57,7 +57,7 @@ const uint8_t keccakf_mod5[10] =
             ^ st[i + 20];
     }
     for (i=0; i<5; i++) {
-      t = bc[keccakf_mod5[(i + 4)]] ^ ROTL8(bc[keccakf_mod5[(i + 1)]], 1);
+      t = bc[m5[(i + 4)]] ^ ROTL8(bc[m5[(i + 1)]], 1);
       for (j=0; j<25; j+=5) {
         st[j + i] ^= t;
       }
@@ -77,7 +77,7 @@ const uint8_t keccakf_mod5[10] =
         bc[i] = st[j + i];
       }
       for (i=0; i<5; i++) {
-        st[j + i] ^= (~bc[keccakf_mod5[(i + 1)]]) & bc[keccakf_mod5[(i + 2)]];
+        st[j + i] ^= (~bc[m5[(i + 1)]]) & bc[m5[(i + 2)]];
       }
     }
     // Iota

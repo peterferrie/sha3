@@ -29,6 +29,7 @@
 
 #include "keccak.h"
 
+/**
 // round constant function
 // Primitive polynomial over GF(2): x^8+x^6+x^5+x^4+1
 uint32_t rc (uint8_t *LFSR)
@@ -52,60 +53,103 @@ uint32_t rc (uint8_t *LFSR)
   }
   *LFSR = (uint8_t)t;
   return c;
-}
+}*/
 
-/**
 __declspec(naked) uint32_t rcx (uint8_t *LFSR)
 {
   __asm {
-    ;int 3
-    pushad
-    xor    esi, esi            ; c = 0  
-    xor    edi, edi
-    
-    mov    ebx, [esp+32+4]     ; t = *LFSR
-    push   ebx
-    movzx  ebx, byte ptr[ebx]          ; 
-    push   1                   ; i = 1
-    pop    edx    
-rc_l0:    
-    test   bl, 1
-    je     rc_l1
-    
-    ; c ^= (uint64_t)1ULL << (i - 1);
-    push   1
-    pop    eax
-    xor    ebp, ebp 
-    lea    ecx, [edx - 1]
-    cmp    cl, 32
-    jae    rc_lx
-    
-    shld   ebp, eax, cl
-    shl    eax, cl
-    jmp    rc_ly
+    int 3
+    xor    eax, eax    
 rc_lx:
-    mov    ebp, eax
-    xor    eax, eax 
-    and    cl, 31
-    shl    ebp, cl    
-rc_ly:    
-    xor    esi, eax
-    xor    edi, ebp
-rc_l1:
-    add    bl, bl              ; t << 1
-    jnc    rc_l2    
-    xor    bl, 0x71
-rc_l2:    
+        
+    pushad
+    xor    eax, eax            ; eax = 0
+    cdq
+    xchg   eax, ebx            ; c = 0
+    inc    edx                 ; i = 1    
+    mov    esi, [esp+32+4]     ; esi = &LFSR
+    mov    edi, esi            ; edi = &LFSR
+    lodsb                      ; al = t = *LFSR
+rc_l0:    
+    test   al, 1               ; t & 1
+    je     rc_l1    
+    lea    ecx, [edx-1]        ; ecx = (i - 1)
+    cmp    cl, 32              ; skip if (ecx >= 32)
+    jae    rc_l1    
+    btc    ebx, ecx            ; c ^= 1UL << (i - 1)
+rc_l1:    
+    add    al, al              ; t << 1
+    sbb    ah, ah              ; ah = (t < 0) ? 0x00 : 0xFF
+    and    ah, 0x71            ; ah = (ah == 0xFF) ? 0x71 : 0x00  
+    xor    al, ah  
     add    dl, dl              ; i += i
-    jns    rc_l0
-    
-    pop    eax
-    mov    byte ptr[eax], bl
-    mov    [esp+28], esi       ; return c & 255
+    jns    rc_l0               ; while (i != 128)
+    stosb                      ; save t
+    mov    [esp+28], ebx       ; return c & 255
     popad
     ret
   };
-}*/
+}
+
+__declspec(naked) uint32_t k800_permutex (void *state) {
+  __asm {
+    pushad
+    call   ld_var
+    // pi
+    dd     0x110b070a, 0x10050312, 0x04181508 
+    dd     0x0d13170f, 0x0e14020c, 0x01060916
+    // modulo 5    
+    dd     0x03020100, 0x02010004, 0x00000403
+ld_var:
+    pop    eax
+    pushad                       ; create local space
+    mov    edi, esp
+    stosd
+    push   22
+    pop    ecx
+k_l0:    
+    push   ecx
+    mov    cl, 5
+    pushad
+k_l1:
+    ; Theta
+    lodsd
+    xor    eax, [esi+4*4-4]
+    xor    eax, [esi+10*4-4]
+    xor    eax, [esi+15*4-4]
+    xor    eax, [esi+20*4-4]
+    stosd
+    loop   k_l1
+    popad 
+    xor    eax, eax
+k_l2:
+    movzx  edx, [ebx+eax+1]     ; edx = m[(i + 1)]
+    movzx  ebp, [ebx+eax+4]     ; ebp = m[(i + 4)]
+    mov    edx, [esi+edx*4]     ; edx = bc[(i+1)%5]
+    mov    ebp, [esi+ebp*4]     ; ebp = bc[(i+4)%5]
+    rol    edx, 1
+    xor    ebp, edx
+k_l3:
+    lea    ebp, [eax+edx]    
+    xor    [edi+eax*4], ebp
+    inc    edx
+    cmp    dl, cl
+    jnz    k_l3
+    loop   k_l2
+    ; Rho Pi
+    
+    ; Chi
+    
+    ; Iota
+    call   rcx
+    xor    [edi], eax
+    
+    pop    ecx
+    loop   k_l0
+    
+    popad
+  };
+}
 
 void k800_permute (void *state)
 {
@@ -113,13 +157,17 @@ void k800_permute (void *state)
   uint32_t t, bc[5];
   uint8_t  lfsr=1;
   uint32_t *st=(uint32_t*)state;
+  uint8_t  *p, *m;
   
-const uint8_t keccakf_piln[24] = 
-{ 10, 7,  11, 17, 18, 3, 5,  16, 8,  21, 24, 4, 
-  15, 23, 19, 13, 12, 2, 20, 14, 22, 9,  6,  1  };
+  uint32_t piln[6]=
+  { 0x110b070a, 0x10050312, 0x04181508, 
+    0x0d13170f, 0x0e14020c, 0x01060916 };
+
+  uint32_t m5[3]=
+  { 0x03020100, 0x02010004, 0x00000403 };
   
-const uint8_t keccakf_mod5[10] = 
-{ 0, 1, 2, 3, 4, 0, 1, 2, 3, 4 };
+  p = (uint8_t*)piln;
+  m = (uint8_t*)m5;
   
   for (rnd=0; rnd<22; rnd++) 
   {
@@ -132,7 +180,7 @@ const uint8_t keccakf_mod5[10] =
             ^ st[i + 20];
     }
     for (i=0; i<5; i++) {
-      t = bc[keccakf_mod5[(i + 4)]] ^ ROTL32(bc[keccakf_mod5[(i + 1)]], 1);
+      t = bc[m[(i + 4)]] ^ ROTL32(bc[m[(i + 1)]], 1);
       for (j=0; j<25; j+=5) {
         st[j + i] ^= t;
       }
@@ -141,7 +189,7 @@ const uint8_t keccakf_mod5[10] =
     t = st[1];
     for (i=0, r=0; i<24; i++) {
       r += i + 1;
-      j = keccakf_piln[i];
+      j = p[i];
       bc[0] = st[j];
       st[j] = ROTL32(t, r & 31);
       t = bc[0];
@@ -152,11 +200,11 @@ const uint8_t keccakf_mod5[10] =
         bc[i] = st[j + i];
       }
       for (i=0; i<5; i++) {
-        st[j + i] ^= (~bc[keccakf_mod5[(i + 1)]]) & bc[keccakf_mod5[(i + 2)]];
+        st[j + i] ^= (~bc[m[(i + 1)]]) & bc[m[(i + 2)]];
       }
     }
     // Iota
-    st[0] ^= rc(&lfsr);
+    st[0] ^= rcx(&lfsr);
   }
 }
 
