@@ -67,9 +67,8 @@ rc_lx:
     cdq
     xchg   eax, ebx            ; c = 0
     inc    edx                 ; i = 1    
-    mov    esi, [esp+32+4]     ; esi = &LFSR
-    mov    edi, esi            ; edi = &LFSR
-    lodsb                      ; al = t = *LFSR
+    mov    edi, [esp+32+4]     ; edi = &LFSR
+    movzx  eax, byte[edi]      ; al = t = *LFSR
 rc_l0:    
     test   al, 1               ; t & 1
     je     rc_l1    
@@ -114,7 +113,7 @@ k_l0:
 k_l1:
     ; Theta
     lodsd
-    xor    eax, [esi+4*4-4]
+    xor    eax, [esi+ 5*4-4]
     xor    eax, [esi+10*4-4]
     xor    eax, [esi+15*4-4]
     xor    eax, [esi+20*4-4]
@@ -125,8 +124,10 @@ k_l1:
 k_l2:
     movzx  edx, [ebx+eax+1]     ; edx = m[(i + 1)]
     movzx  ebp, [ebx+eax+4]     ; ebp = m[(i + 4)]
+    
     mov    edx, [esi+edx*4]     ; edx = bc[(i+1)%5]
     mov    ebp, [esi+ebp*4]     ; ebp = bc[(i+4)%5]
+    
     rol    edx, 1
     xor    ebp, edx
 k_l3:
