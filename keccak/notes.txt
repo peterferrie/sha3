@@ -1,0 +1,3 @@
+  * - KetjeMn for Ketje Minor, using Keccak-p[800]
+  * - KetjeMj for Ketje Major, using Keccak-p[1600]
+  River for River Keyak, using a single Keccak-p[800,12]
