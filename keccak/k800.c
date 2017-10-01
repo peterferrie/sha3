@@ -29,7 +29,6 @@
 
 #include "keccak.h"
 
-/**
 // round constant function
 // Primitive polynomial over GF(2): x^8+x^6+x^5+x^4+1
 uint32_t rc (uint8_t *LFSR)
@@ -53,108 +52,10 @@ uint32_t rc (uint8_t *LFSR)
   }
   *LFSR = (uint8_t)t;
   return c;
-}*/
-
-__declspec(naked) uint32_t rcx (uint8_t *LFSR)
-{
-  __asm {
-    int 3
-    xor    eax, eax    
-rc_lx:
-        
-    pushad
-    xor    eax, eax            ; eax = 0
-    cdq
-    xchg   eax, ebx            ; c = 0
-    inc    edx                 ; i = 1    
-    mov    esi, [esp+32+4]     ; esi = &LFSR
-    mov    edi, esi            ; edi = &LFSR
-    lodsb                      ; al = t = *LFSR
-rc_l0:    
-    test   al, 1               ; t & 1
-    je     rc_l1    
-    lea    ecx, [edx-1]        ; ecx = (i - 1)
-    cmp    cl, 32              ; skip if (ecx >= 32)
-    jae    rc_l1    
-    btc    ebx, ecx            ; c ^= 1UL << (i - 1)
-rc_l1:    
-    add    al, al              ; t << 1
-    sbb    ah, ah              ; ah = (t < 0) ? 0x00 : 0xFF
-    and    ah, 0x71            ; ah = (ah == 0xFF) ? 0x71 : 0x00  
-    xor    al, ah  
-    add    dl, dl              ; i += i
-    jns    rc_l0               ; while (i != 128)
-    stosb                      ; save t
-    mov    [esp+28], ebx       ; return c & 255
-    popad
-    ret
-  };
 }
 
-__declspec(naked) uint32_t k800_permutex (void *state) {
-  __asm {
-    pushad
-    call   ld_var
-    // pi
-    dd     0x110b070a, 0x10050312, 0x04181508 
-    dd     0x0d13170f, 0x0e14020c, 0x01060916
-    // modulo 5    
-    dd     0x03020100, 0x02010004, 0x00000403
-ld_var:
-    pop    eax
-    pushad                       ; create local space
-    mov    edi, esp
-    stosd
-    push   22
-    pop    ecx
-k_l0:    
-    push   ecx
-    mov    cl, 5
-    pushad
-k_l1:
-    ; Theta
-    lodsd
-    xor    eax, [esi+4*4-4]
-    xor    eax, [esi+10*4-4]
-    xor    eax, [esi+15*4-4]
-    xor    eax, [esi+20*4-4]
-    stosd
-    loop   k_l1
-    popad 
-    xor    eax, eax
-k_l2:
-    movzx  edx, [ebx+eax+1]     ; edx = m[(i + 1)]
-    movzx  ebp, [ebx+eax+4]     ; ebp = m[(i + 4)]
-    mov    edx, [esi+edx*4]     ; edx = bc[(i+1)%5]
-    mov    ebp, [esi+ebp*4]     ; ebp = bc[(i+4)%5]
-    rol    edx, 1
-    xor    ebp, edx
-k_l3:
-    lea    ebp, [eax+edx]    
-    xor    [edi+eax*4], ebp
-    inc    edx
-    cmp    dl, cl
-    jnz    k_l3
-    loop   k_l2
-    ; Rho Pi
-    
-    ; Chi
-    
-    ; Iota
-    call   rcx
-    xor    [edi], eax
-    
-    pop    ecx
-    loop   k_l0
-    
-    popad
-  };
-}
-
-void k800_permute (void *state)
-{
-  uint32_t i, j, rnd, r;
-  uint32_t t, bc[5];
+void k800_permute (void *state) {
+  uint32_t i, j, rnd, r, t, u, bc[5];
   uint8_t  lfsr=1;
   uint32_t *st=(uint32_t*)state;
   uint8_t  *p, *m;
@@ -169,42 +70,42 @@ void k800_permute (void *state)
   p = (uint8_t*)piln;
   m = (uint8_t*)m5;
   
-  for (rnd=0; rnd<22; rnd++) 
-  {
+  for (rnd=0; rnd<22; rnd++) {
     // Theta
     for (i=0; i<5; i++) {     
-      bc[i] = st[i] 
-            ^ st[i +  5] 
-            ^ st[i + 10] 
-            ^ st[i + 15] 
-            ^ st[i + 20];
+      t  = st[i]; 
+      t ^= st[i +  5]; 
+      t ^= st[i + 10]; 
+      t ^= st[i + 15]; 
+      t ^= st[i + 20];
+      bc[i] = t;
     }
     for (i=0; i<5; i++) {
-      t = bc[m[(i + 4)]] ^ ROTL32(bc[m[(i + 1)]], 1);
+      t  = bc[m[(i + 4)]]; 
+      t ^= ROTL32(bc[m[(i + 1)]], 1);
       for (j=0; j<25; j+=5) {
         st[j + i] ^= t;
       }
     }
     // Rho Pi
-    t = st[1];
+    u = st[1];
     for (i=0, r=0; i<24; i++) {
-      r += i + 1;
-      j = p[i];
-      bc[0] = st[j];
-      st[j] = ROTL32(t, r & 31);
-      t = bc[0];
+      r += i + 1;       
+      u  = ROTL32(u, r);
+      XCHG(st[p[i]], u);
+      bc[0] = u;
     }
     // Chi
     for (j=0; j<25; j+=5) {
+      memcpy(&bc, &st[j], 5*4);      
       for (i=0; i<5; i++) {
-        bc[i] = st[j + i];
-      }
-      for (i=0; i<5; i++) {
-        st[j + i] ^= (~bc[m[(i + 1)]]) & bc[m[(i + 2)]];
+        t  = ~bc[m[(i + 1)]];
+        t &= bc[m[(i + 2)]];        
+        st[j + i] ^= t;
       }
     }
     // Iota
-    st[0] ^= rcx(&lfsr);
+    st[0] ^= rc(&lfsr);
   }
 }
 
