@@ -36,128 +36,150 @@
 ;
 ; -----------------------------------------------
     bits   32
-k800x:
-_k800x:
+  
+struc pushad_t
+  _edi resd 1
+  _esi resd 1
+  _ebp resd 1
+  _esp resd 1
+  _ebx resd 1
+  _edx resd 1
+  _ecx resd 1
+  _eax resd 1
+  .size:
+endstruc
+  
+    %ifndef BIN
+      global k800_permutex
+      global _k800_permutex
+    %endif
+    
+k800_permutex:
+_k800_permutex:
     pushad
-    mov    esi, [esp+32+4]     ; esi = st
-    call   ld_var
+    mov    esi, [esp+32+4]      ; esi = st
+    call   k800_l0
+    ; modulo 5    
+    dd     003020100h, 002010004h, 000000403h
     ; rho pi
     dd     0110b070ah, 010050312h, 004181508h 
     dd     00d13170fh, 00e14020ch, 001060916h
-    ; modulo 5    
-    dd     003020100h, 002010004h, 000000403h
-ld_var:
-    pop    eax
-    pushad                       ; create local space
-    mov    edi, esp              ; edi = bc
-    stosd
+k800_l0:
+    pop    ebx                  ; m + p
+    
+    pushad                      ; create local space
+    mov    edi, esp             ; edi = bc
     push   22
-    pop    ecx
-k_l0:    
-    push   ecx
-    mov    cl, 5
+    pop    eax
+    cdq   
+k800_l1:    
+    push   eax    
+    push   5 
+    pop    ecx    
     pushad
-k_l1:
+theta_l0:
     ; Theta
-    lodsd                    ; eax = st[i]  
-    xor    eax, [esi+ 5*4-4] ; 
-    xor    eax, [esi+10*4-4]
-    xor    eax, [esi+15*4-4]
-    xor    eax, [esi+20*4-4]
-    stosd
-    loop   k_l1
-    
+    lodsd                       ; t  = st[i     ];  
+    xor    eax, [esi+ 5*4-4]    ; t ^= st[i +  5];
+    xor    eax, [esi+10*4-4]    ; t ^= st[i + 10];
+    xor    eax, [esi+15*4-4]    ; t ^= st[i + 15];
+    xor    eax, [esi+20*4-4]    ; t ^= st[i + 20];
+    stosd                       ; bc[i] = t;
+    loop   theta_l0    
     popad 
-    xor    eax, eax
-k_l2:
-    movzx  edx, byte[ebx+eax+1]     ; edx = m[(i + 1)]
-    movzx  ebp, byte[ebx+eax+4]     ; ebp = m[(i + 4)]
-    mov    edx, [esi+edx*4]     ; edx = bc[(i+1)%5]
-    mov    ebp, [esi+ebp*4]     ; ebp = bc[(i+4)%5]
-    rol    edx, 1
+theta_l1:
+    movzx  ebp, byte[ebx+eax+4] ; ebp = m[(i + 4)];
+    mov    ebp, [edi+ebp*4]     ; t   = bc[m[(i + 4)]];    
+    movzx  edx, byte[ebx+eax+1] ; edx= m[(i + 1)];
+    mov    edx, [edi+edx*4]     ; edx = bc[m[(i + 1)]];
+    rol    edx, 1               ; t ^= ROTL32(edx, 1);
     xor    ebp, edx
-k_l3:
-    lea    ebp, [eax+edx]    
-    xor    [edi+eax*4], ebp
-    inc    edx
-    cmp    dl, cl
-    jnz    k_l3
-    
-    loop   k_l2
+    push   eax                  ; save i
+theta_l2:
+    xor    [esi+eax*4], ebp     ; st[j] ^= t;
+    add    al, 5                ; j += 5 
+    cmp    al, 25               ; j < 25
+    jb     theta_l2
+    pop    eax                  ; restore i    
+    inc    eax                  ; i++
+    cmp    al, 5                ; i < 5
+    jnz    theta_l1
     ; *************************************
     ; Rho Pi
     ; *************************************
-    mov    ebp, [esi+1*4]      ; t = st[1];
+    mov    ebp, [esi+1*4]       ; t = st[1];
+    xor    eax, eax 
+    xor    ecx, ecx             ; r = 0;
 rho_l0:
-    lea    ecx, [ecx+eax+1]    ; r += i + 1;
-    rol    ebp, cl             ; t = ROTL32(t, r); 
-    movzx  edx, byte[ebx+eax]  ; edx = p[i];
-    xchg   [esi+edx*4], ebp    ; XCHG(st[p[i]], t);
-    mov    [edi+0*4], ebp      ; bc[0] = t;
-    inc    eax                 ; i++
-    cmp    al, 24              ; i<24
-    jnz    rho_l0
+    lea    ecx, [ecx+eax+1]     ; r = r + i + 1;
+    rol    ebp, cl              ; t = ROTL32(t, r); 
+    movzx  edx, byte[ebx+eax+16]; edx = p[i];
+    xchg   [esi+edx*4], ebp     ; XCHG(st[p[i]], t);
+    mov    [edi+0*4], ebp       ; bc[0] = t;
+    inc    eax                  ; i++
+    cmp    al, 24               ; i<24
+    jnz    rho_l0               ; 
     ; *************************************
     ; Chi
     ; *************************************
-    xor    ecx, ecx          ; j = 0 
+    xor    eax, eax             ;
+    xor    ecx, ecx             ; i = 0 
 chi_l0:    
     pushad
-    add    esi, edx          ; esi = &st[j];
+    ; memcpy(&bc, &st[i], 5*4);
+    lea    esi, [esi+edx*4]     ; esi = &st[i];
     mov    cl, 5
     rep    movsd
     popad
 chi_l1:
     movzx  ebp, byte[ebx+eax+1]
     movzx  edx, byte[ebx+eax+2]
-    mov    ebp, [edi+ebp*4]  ; t = ~bc[m[(i + 1)]] 
+    mov    ebp, [edi+ebp*4]     ; t = ~bc[m[(i + 1)]] 
     not    ebp            
     and    ebp, [edi+edx*4]
-    lea    edx, [eax+ecx]    ; edx = j + i    
-    xor    [esi+edx*4], ebp  ; st[j + i] ^= t;  
-    inc    eax               ; i++
-    cmp    al, 5             ; i<5
-    jnz    chi_l1
+    lea    edx, [eax+ecx]       ; edx = j + i    
+    xor    [esi+edx*4], ebp     ; st[j + i] ^= t;  
+    inc    eax                  ; j++
+    cmp    al, 5                ; j<5
+    jnz    chi_l1    
     
-    add    cl, 5             ; j += 5;
-    cmp    cl, 25            ; j<25
+    add    cl, 5                ; i+=5;
+    cmp    cl, 25               ; i<25
     jnz    chi_l0
     
     ; Iota
-    lea    eax, [esp+5*6]    ; eax = lfsr
-    ;call   rc               ; st[0] ^= rc(&lfsr);
-    
+    lea    eax, [esp+pushad_t+_edx] ; eax = lfsr
     pushad
-    xor    esi, esi            ; esi = 0
-    xchg   eax, esi            ; esi = &lfsr, eax = 0
-    mov    edi, esi            ; edi = &lfsr
-    cdq                        ; i = 0
-    xchg   eax, ebx            ; c = 0
-    inc    edx                 ; i = 1
-    lodsb                      ; al = t = *LFSR
-rc_l0:    
-    test   al, 1               ; t & 1
-    je     rc_l1    
-    lea    ecx, [edx-1]        ; ecx = (i - 1)
-    cmp    cl, 32              ; skip if (ecx >= 32)
-    jae    rc_l1    
-    btc    ebx, ecx            ; c ^= 1UL << (i - 1)
-rc_l1:    
-    add    al, al              ; t << 1
-    sbb    ah, ah              ; ah = (t < 0) ? 0x00 : 0xFF
-    and    ah, 0x71            ; ah = (ah == 0xFF) ? 0x71 : 0x00  
+    xor    esi, esi             ; esi = 0
+    xchg   eax, esi             ; esi = &lfsr, eax = 0
+    mov    edi, esi             ; edi = &lfsr
+    cdq                         ; i = 0
+    xchg   eax, ebx             ; c = 0
+    inc    edx                  ; i = 1
+    lodsb                       ; al = t = *LFSR
+iota_l0:    
+    test   al, 1                ; t & 1
+    je     iota_l1    
+    lea    ecx, [edx-1]         ; ecx = (i - 1)
+    cmp    cl, 32               ; skip if (ecx >= 32)
+    jae    iota_l1    
+    btc    ebx, ecx             ; c ^= 1UL << (i - 1)
+iota_l1:    
+    add    al, al               ; t << 1
+    sbb    ah, ah               ; ah = (t < 0) ? 0x00 : 0xFF
+    and    ah, 0x71             ; ah = (ah == 0xFF) ? 0x71 : 0x00  
     xor    al, ah  
-    add    dl, dl              ; i += i
-    jns    rc_l0               ; while (i != 128)
-    stosb                      ; save t
-    mov    [esp+28], ebx       ; return c & 255
-    popad    
+    add    dl, dl               ; i += i
+    jns    iota_l0              ; while (i != 128)
+    stosb                       ; save t
+    mov    [esp+28], ebx        ; return c & 255
+    popad        
+    xor    [esi], eax           ; st[0] ^= rc(&lfsr);  
     
-    xor    [esi], eax
+    pop    eax
+    dec    eax
+    jns    k800_l1              ; rnds<22
     
-    pop    ecx
-    dec    ecx
-    jnz    k_l0
-    
-    popad
+    popad                       ; release bc
+    popad                       ; restore registers 
     ret

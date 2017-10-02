@@ -29,84 +29,86 @@
 
 #include "keccak.h"
 
+void k800_permutex (void *state);
+
 // round constant function
 // Primitive polynomial over GF(2): x^8+x^6+x^5+x^4+1
-uint32_t rc (uint8_t *LFSR)
-{
-  uint32_t c; 
-  int8_t   t;
-  uint8_t  i;
+uint32_t rc (uint8_t *LFSR) {
+    uint32_t c; 
+    int8_t   t;
+    uint8_t  i;
 
-  c = 0;
-  t = *LFSR;
-  
-  for (i=1; i<128; i += i) 
-  {
-    if (t & 1) {
-      // if shift value is < 32
-      if ((i-1) < 32) {
-        c ^= 1UL << (i - 1);
+    c = 0;
+    t = *LFSR;
+    
+    for (i=1; i<128; i += i) 
+    {
+      if (t & 1) {
+        // if shift value is < 32
+        if ((i-1) < 32) {
+          c ^= 1UL << (i - 1);
+        }
       }
+      t = (t & 0x80) ? (t << 1) ^ 0x71 : t << 1;
     }
-    t = (t & 0x80) ? (t << 1) ^ 0x71 : t << 1;
-  }
-  *LFSR = (uint8_t)t;
-  return c;
+    *LFSR = (uint8_t)t;
+    return c;
 }
 
 void k800_permute (void *state) {
-  uint32_t i, j, rnd, r, t, u, bc[5];
-  uint8_t  lfsr=1;
-  uint32_t *st=(uint32_t*)state;
-  uint8_t  *p, *m;
-  
-  uint32_t piln[6]=
-  { 0x110b070a, 0x10050312, 0x04181508, 
-    0x0d13170f, 0x0e14020c, 0x01060916 };
+    uint32_t i, j, r, t, u, bc[5];
+    uint8_t  lfsr=1;
+    uint32_t *st=(uint32_t*)state;
+    uint8_t  *p, *m;
+    int      rnd;
+    
+    uint32_t piln[6]=
+    { 0x110b070a, 0x10050312, 0x04181508, 
+      0x0d13170f, 0x0e14020c, 0x01060916 };
 
-  uint32_t m5[3]=
-  { 0x03020100, 0x02010004, 0x00000403 };
-  
-  p = (uint8_t*)piln;
-  m = (uint8_t*)m5;
-  
-  for (rnd=0; rnd<22; rnd++) {
-    // Theta
-    for (i=0; i<5; i++) {     
-      t  = st[i]; 
-      t ^= st[i +  5]; 
-      t ^= st[i + 10]; 
-      t ^= st[i + 15]; 
-      t ^= st[i + 20];
-      bc[i] = t;
-    }
-    for (i=0; i<5; i++) {
-      t  = bc[m[(i + 4)]]; 
-      t ^= ROTL32(bc[m[(i + 1)]], 1);
-      for (j=0; j<25; j+=5) {
-        st[j + i] ^= t;
+    uint32_t m5[3]=
+    { 0x03020100, 0x02010004, 0x00000403 };
+    
+    p = (uint8_t*)piln;
+    m = (uint8_t*)m5;
+    
+    for (rnd=0; rnd<22; rnd++) {
+      // Theta
+      for (i=0; i<5; i++) {     
+        t  = st[i]; 
+        t ^= st[i +  5]; 
+        t ^= st[i + 10]; 
+        t ^= st[i + 15]; 
+        t ^= st[i + 20];
+        bc[i] = t;
       }
-    }
-    // Rho Pi
-    u = st[1];
-    for (i=0, r=0; i<24; i++) {
-      r += i + 1;       
-      u  = ROTL32(u, r);
-      XCHG(st[p[i]], u);
-      bc[0] = u;
-    }
-    // Chi
-    for (j=0; j<25; j+=5) {
-      memcpy(&bc, &st[j], 5*4);      
       for (i=0; i<5; i++) {
-        t  = ~bc[m[(i + 1)]];
-        t &= bc[m[(i + 2)]];        
-        st[j + i] ^= t;
+        t  = bc[m[(i + 4)]]; 
+        t ^= ROTL32(bc[m[(i + 1)]], 1);
+        for (j=i; j<25; j+=5) {
+          st[j] ^= t;
+        }
       }
+      // Rho Pi
+      u = st[1];
+      for (i=0, r=0; i<24; i++) {
+        r += i + 1;       
+        u  = ROTL32(u, r);
+        XCHG(st[p[i]], u);
+        bc[0] = u;
+      }
+      // Chi
+      for (i=0; i<25; i+=5) {
+        memcpy(&bc, &st[i], 5*4);      
+        for (j=0; j<5; j++) {
+          t  = ~bc[m[(j + 1)]];
+          t &=  bc[m[(j + 2)]];        
+          st[j + i] ^= t;
+        }
+      }
+      // Iota
+      st[0] ^= rc(&lfsr);
     }
-    // Iota
-    st[0] ^= rc(&lfsr);
-  }
 }
 
 #ifdef TEST
