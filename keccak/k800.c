@@ -92,7 +92,7 @@ void k800_permute (void *state) {
       // Rho + Pi
       u = st[1];      
       for (i=0, r=0; i<24; i++) {
-        r = r + i + 1;       
+        r = r + i + 1;    
         u  = ROTL32(u, r);
         XCHG(st[p[i]], u);
         bc[0] = u;
@@ -161,12 +161,12 @@ int main(void)
   
   memset(out, 0, sizeof(out));
   
-  k800_permutex(out);
+  k800_permute(out);
   equ = memcmp(out, tv1, sizeof(tv1))==0;
   printf("Test 1 %s\n", equ ? "OK" : "Failed"); 
   //bin2hex(out, 100);
 
-  k800_permutex(out);
+  k800_permute(out);
   equ = memcmp(out, tv2, sizeof(tv2))==0;
   printf("Test 2 %s\n", equ ? "OK" : "Failed");
   //bin2hex(out, 100);

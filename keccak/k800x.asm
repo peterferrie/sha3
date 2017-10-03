@@ -177,7 +177,7 @@ iota_l1:
     add    dl, dl               ; i += i
     jns    iota_l0              ; while (i != 128)
     stosb                       ; save t
-    mov    [esp+28], ebx        ; return c & 255
+    mov    [esp+28], ebx        ; return c
     popad        
     
     xor    [esi], eax           ; st[0] ^= rc(&lfsr);  
