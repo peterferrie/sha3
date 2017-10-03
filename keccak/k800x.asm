@@ -54,6 +54,8 @@ endstruc
       global _k800_permutex
     %endif
     
+; void k800_permutex(void *state);
+    
 k800_permutex:
 _k800_permutex:
     pushad
