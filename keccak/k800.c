@@ -89,13 +89,10 @@ void k800_permute (void *state) {
           st[j] ^= t;
         }
       }
-      // Rho Pi
-      u = st[1];
-      
-      __asm int 3;
-      
+      // Rho + Pi
+      u = st[1];      
       for (i=0, r=0; i<24; i++) {
-        r += i + 1;       
+        r = r + i + 1;       
         u  = ROTL32(u, r);
         XCHG(st[p[i]], u);
         bc[0] = u;
@@ -159,20 +156,17 @@ void bin2hex(uint8_t x[], int len) {
   
 int main(void)
 {
-  uint8_t  out[100],out2[100];
+  uint8_t  out[100];
   int      equ;
   
   memset(out, 0, sizeof(out));
-  memset(out2, 0, sizeof(out2));
   
-  k800_permute(out);
-  k800_permutex(out2);
-  
+  k800_permutex(out);
   equ = memcmp(out, tv1, sizeof(tv1))==0;
   printf("Test 1 %s\n", equ ? "OK" : "Failed"); 
-  bin2hex(out, 100);
+  //bin2hex(out, 100);
 
-  k800_permute(out);
+  k800_permutex(out);
   equ = memcmp(out, tv2, sizeof(tv2))==0;
   printf("Test 2 %s\n", equ ? "OK" : "Failed");
   //bin2hex(out, 100);

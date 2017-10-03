@@ -86,6 +86,7 @@ theta_l0:
     xor    eax, [esi+20*4-4]    ; t ^= st[i + 20];
     stosd                       ; bc[i] = t;
     loop   theta_l0    
+    
     popad
     xor    eax, eax    
 theta_l1:
@@ -101,6 +102,7 @@ theta_l2:
     add    al, 5                ; j+=5 
     cmp    al, 25               ; j<25
     jb     theta_l2
+    
     pop    eax                  ; restore i    
     inc    eax                  ; i++
     cmp    al, 5                ; i<5
@@ -108,7 +110,6 @@ theta_l2:
     ; *************************************
     ; Rho Pi
     ; *************************************
-    ;int3
     mov    ebp, [esi+1*4]       ; t = st[1];
     xor    eax, eax 
     xor    ecx, ecx             ; r = 0;
@@ -125,11 +126,11 @@ rho_l0:
     ; *************************************
     ; Chi
     ; *************************************
-    xor    ecx, ecx             ; i = 0 
+    xor    ecx, ecx             ; i = 0   
 chi_l0:    
     pushad
     ; memcpy(&bc, &st[i], 5*4);
-    lea    esi, [esi+edx*4]     ; esi = &st[i];
+    lea    esi, [esi+ecx*4]     ; esi = &st[i];
     mov    cl, 5
     rep    movsd
     popad
@@ -149,7 +150,7 @@ chi_l1:
     add    cl, 5                ; i+=5;
     cmp    cl, 25               ; i<25
     jnz    chi_l0
-    ;int3
+
     ; Iota
     lea    eax, [esp+pushad_t+_edx+4] ; eax = lfsr
     pushad
@@ -177,8 +178,6 @@ iota_l1:
     stosb                       ; save t
     mov    [esp+28], ebx        ; return c & 255
     popad        
-    
-    ;int3
     
     xor    [esi], eax           ; st[0] ^= rc(&lfsr);  
     
