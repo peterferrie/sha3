@@ -30,22 +30,22 @@
 ; -----------------------------------------------
 ; Keccak-p800 in x86 assembly
 ;
-; size: 250 bytes
+; size: 254 bytes
 ;
 ; global calls use cdecl convention
 ;
 ; -----------------------------------------------
     bits   32
   
-struc pushad_t
-  _edi resd 1
-  _esi resd 1
-  _ebp resd 1
-  _esp resd 1
-  _ebx resd 1
-  _edx resd 1
-  _ecx resd 1
-  _eax resd 1
+struc kws_t
+  bc1  resd 1 ; edi
+  bc2  resd 1 ; esi
+  bc3  resd 1 ; ebp
+  bc4  resd 1 ; esp
+  bc5  resd 1 ; ebx
+  lfsr resd 1 ; edx
+  ; ecx
+  ; eax
   .size:
 endstruc
   
@@ -115,7 +115,6 @@ theta_l2:
     xor    ecx, ecx             ; r = 0;
 rho_l0:
     lea    ecx, [ecx+eax+1]     ; r = r + i + 1;
-    and    cl, 31
     rol    ebp, cl              ; t = ROTL32(t, r); 
     movzx  edx, byte[ebx+eax+12]; edx = p[i];
     xchg   [esi+edx*4], ebp     ; XCHG(st[p[i]], t);
@@ -152,7 +151,7 @@ chi_l1:
     jnz    chi_l0
 
     ; Iota
-    lea    eax, [esp+pushad_t+_edx+4] ; eax = lfsr
+    lea    eax, [esp+kws_t+lfsr+4]; eax = lfsr
     pushad
     xor    esi, esi             ; esi = 0
     xchg   eax, esi             ; esi = &lfsr, eax = 0
