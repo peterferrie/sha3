@@ -30,7 +30,7 @@
 ; -----------------------------------------------
 ; Keccak-p[800, 24] in x86 assembly
 ;
-; size: 252 bytes
+; size: 254 bytes
 ;
 ; global calls use cdecl convention
 ;
@@ -111,6 +111,7 @@ theta_l2:
     ; *************************************
     mov    ebp, [esi+1*4]       ; t = st[1];
     xor    eax, eax
+    xor    ecx, ecx
 rho_l0:
     lea    ecx, [ecx+eax+1]     ; r = r + i + 1;
     rol    ebp, cl              ; t = ROTL32(t, r); 
