@@ -28,9 +28,9 @@
 ;  POSSIBILITY OF SUCH DAMAGE.
 ;
 ; -----------------------------------------------
-; Keccak-p800 in x86 assembly
+; Keccak-p[800, 24] in x86 assembly
 ;
-; size: 254 bytes
+; size: 252 bytes
 ;
 ; global calls use cdecl convention
 ;
@@ -54,8 +54,7 @@ endstruc
       global _k800_permutex
     %endif
     
-; void k800_permutex(void *state);
-    
+; void k800_permutex(void *state);    
 k800_permutex:
 _k800_permutex:
     pushad
@@ -87,24 +86,22 @@ theta_l0:
     xor    eax, [esi+15*4-4]    ; t ^= st[i + 15];
     xor    eax, [esi+20*4-4]    ; t ^= st[i + 20];
     stosd                       ; bc[i] = t;
-    loop   theta_l0    
-    
-    popad
+    loop   theta_l0        
+    popad    
     xor    eax, eax    
 theta_l1:
     movzx  ebp, byte[ebx+eax+4] ; ebp = m[(i + 4)];
     mov    ebp, [edi+ebp*4]     ; t   = bc[m[(i + 4)]];    
     movzx  edx, byte[ebx+eax+1] ; edx = m[(i + 1)];
     mov    edx, [edi+edx*4]     ; edx = bc[m[(i + 1)]];
-    rol    edx, 1               ; t ^= ROTL32(edx, 1);
+    rol    edx, 1               ; t  ^= ROTL32(edx, 1);
     xor    ebp, edx
     push   eax                  ; save i
 theta_l2:
     xor    [esi+eax*4], ebp     ; st[j] ^= t;
     add    al, 5                ; j+=5 
     cmp    al, 25               ; j<25
-    jb     theta_l2
-    
+    jb     theta_l2    
     pop    eax                  ; restore i    
     inc    eax                  ; i++
     cmp    al, 5                ; i<5
@@ -113,8 +110,7 @@ theta_l2:
     ; Rho Pi
     ; *************************************
     mov    ebp, [esi+1*4]       ; t = st[1];
-    xor    eax, eax 
-    xor    ecx, ecx             ; r = 0;
+    xor    eax, eax
 rho_l0:
     lea    ecx, [ecx+eax+1]     ; r = r + i + 1;
     rol    ebp, cl              ; t = ROTL32(t, r); 
@@ -146,12 +142,10 @@ chi_l1:
     xor    [esi+edx*4], ebp     ; st[j + i] ^= t;  
     inc    eax                  ; j++
     cmp    al, 5                ; j<5
-    jnz    chi_l1    
-    
+    jnz    chi_l1        
     add    cl, 5                ; i+=5;
     cmp    cl, 25               ; i<25
     jnz    chi_l0
-
     ; Iota
     lea    eax, [esp+kws_t+lfsr+4]; eax = lfsr
     pushad
@@ -178,14 +172,11 @@ iota_l1:
     jns    iota_l0              ; while (i != 128)
     stosb                       ; save t
     mov    [esp+28], ebx        ; return c
-    popad        
-    
-    xor    [esi], eax           ; st[0] ^= rc(&lfsr);  
-    
+    popad            
+    xor    [esi], eax           ; st[0] ^= rc(&lfsr);      
     pop    eax
     dec    eax
-    jnz    k800_l1              ; rnds<22
-    
+    jnz    k800_l1              ; rnds<22    
     popad                       ; release bc
     popad                       ; restore registers 
     ret
