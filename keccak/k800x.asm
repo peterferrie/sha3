@@ -111,6 +111,7 @@ theta_l2:
     ; *************************************
     mov    ebp, [esi+1*4]       ; t = st[1];
     xor    eax, eax
+    xor    ecx, ecx
 rho_l0:
     lea    ecx, [ecx+eax+1]     ; r = r + i + 1;
     rol    ebp, cl              ; t = ROTL32(t, r); 
@@ -145,7 +146,7 @@ chi_l1:
     jnz    chi_l1        
     add    cl, 5                ; i+=5;
     cmp    cl, 25               ; i<25
-    jnz    chi_l0
+    jb     chi_l0
     ; Iota
     lea    eax, [esp+kws_t+lfsr+4]; eax = lfsr
     pushad

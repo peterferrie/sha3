@@ -161,12 +161,12 @@ int main(void)
   
   memset(out, 0, sizeof(out));
   
-  k800_permute(out);
+  k800_permutex(out);
   equ = memcmp(out, tv1, sizeof(tv1))==0;
   printf("Test 1 %s\n", equ ? "OK" : "Failed"); 
   //bin2hex(out, 100);
 
-  k800_permute(out);
+  k800_permutex(out);
   equ = memcmp(out, tv2, sizeof(tv2))==0;
   printf("Test 2 %s\n", equ ? "OK" : "Failed");
   //bin2hex(out, 100);
