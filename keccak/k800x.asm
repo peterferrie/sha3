@@ -30,7 +30,7 @@
 ; -----------------------------------------------
 ; Keccak-p[800, 24] in x86 assembly
 ;
-; size: 252 bytes
+; size: 254 bytes
 ;
 ; global calls use cdecl convention
 ;
