@@ -30,7 +30,7 @@
 ; -----------------------------------------------
 ; Keccak-p[800, 24] in x86 assembly
 ;
-; size: 254 bytes
+; size: 252 bytes
 ;
 ; global calls use cdecl convention
 ;
@@ -104,7 +104,7 @@ theta_l2:
     jb     theta_l2    
     pop    eax                  ; restore i    
     inc    eax                  ; i++
-    cmp    al, 5                ; i<5
+    cmp    al, 5                ; i<5 
     jnz    theta_l1
     ; *************************************
     ; Rho Pi
