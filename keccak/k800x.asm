@@ -1,5 +1,5 @@
 ;
-;  Copyright © 2017 Odzhan. All Rights Reserved.
+;  Copyright © 2017 Odzhan, Peter Ferrie. All Rights Reserved.
 ;
 ;  Redistribution and use in source and binary forms, with or without
 ;  modification, are permitted provided that the following conditions are
@@ -30,7 +30,7 @@
 ; -----------------------------------------------
 ; Keccak-p[800, 24] in x86 assembly
 ;
-; size: 252 bytes
+; size: 236 bytes
 ;
 ; global calls use cdecl convention
 ;
@@ -96,30 +96,24 @@ theta_l1:
     mov    edx, [edi+edx*4]     ; edx = bc[m[(i + 1)]];
     rol    edx, 1               ; t  ^= ROTL32(edx, 1);
     xor    ebp, edx
-    push   eax                  ; save i
 theta_l2:
     xor    [esi+eax*4], ebp     ; st[j] ^= t;
     add    al, 5                ; j+=5 
     cmp    al, 25               ; j<25
     jb     theta_l2    
-    pop    eax                  ; restore i    
-    inc    eax                  ; i++
-    cmp    al, 5                ; i<5 
-    jnz    theta_l1
+    sub    al, 24               ; i=i+1
+    loop   theta_l1             ; i<5 
     ; *************************************
     ; Rho Pi
     ; *************************************
     mov    ebp, [esi+1*4]       ; t = st[1];
-    xor    eax, eax
-    xor    ecx, ecx
 rho_l0:
-    lea    ecx, [ecx+eax+1]     ; r = r + i + 1;
+    lea    ecx, [ecx+eax-4]     ; r = r + i + 1;
     rol    ebp, cl              ; t = ROTL32(t, r); 
-    movzx  edx, byte[ebx+eax+12]; edx = p[i];
+    movzx  edx, byte[ebx+eax+7] ; edx = p[i];
     xchg   [esi+edx*4], ebp     ; XCHG(st[p[i]], t);
-    mov    [edi+0*4], ebp       ; bc[0] = t;
     inc    eax                  ; i++
-    cmp    al, 24               ; i<24
+    cmp    al, 24+5             ; i<24
     jnz    rho_l0               ; 
     ; *************************************
     ; Chi
@@ -144,26 +138,20 @@ chi_l1:
     inc    eax                  ; j++
     cmp    al, 5                ; j<5
     jnz    chi_l1        
-    add    cl, 5                ; i+=5;
+    add    cl, al               ; i+=5;
     cmp    cl, 25               ; i<25
     jb     chi_l0
     ; Iota
-    lea    eax, [esp+kws_t+lfsr+4]; eax = lfsr
-    pushad
-    xor    esi, esi             ; esi = 0
-    xchg   eax, esi             ; esi = &lfsr, eax = 0
-    mov    edi, esi             ; edi = &lfsr
-    cdq                         ; i = 0
-    xchg   eax, ebx             ; c = 0
-    inc    edx                  ; i = 1
-    lodsb                       ; al = t = *LFSR
+    mov    al, [esp+kws_t+lfsr+4]; al = t = *LFSR
+    mov    dl, 1                ; i = 1
+    xor    ebp, ebp
 iota_l0:    
     test   al, 1                ; t & 1
     je     iota_l1    
     lea    ecx, [edx-1]         ; ecx = (i - 1)
     cmp    cl, 32               ; skip if (ecx >= 32)
     jae    iota_l1    
-    btc    ebx, ecx             ; c ^= 1UL << (i - 1)
+    btc    ebp, ecx             ; c ^= 1UL << (i - 1)
 iota_l1:    
     add    al, al               ; t << 1
     sbb    ah, ah               ; ah = (t < 0) ? 0x00 : 0xFF
@@ -171,10 +159,8 @@ iota_l1:
     xor    al, ah  
     add    dl, dl               ; i += i
     jns    iota_l0              ; while (i != 128)
-    stosb                       ; save t
-    mov    [esp+28], ebx        ; return c
-    popad            
-    xor    [esi], eax           ; st[0] ^= rc(&lfsr);      
+    mov    [esp+kws_t+lfsr+4], al; save t
+    xor    [esi], ebp           ; st[0] ^= rc(&lfsr);      
     pop    eax
     dec    eax
     jnz    k800_l1              ; rnds<22    
